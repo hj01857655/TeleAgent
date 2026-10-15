@@ -1,0 +1,16 @@
+{
+  "token": "your_teleagent_jwt_token_here",
+  "deviceId": "your_device_id_here",
+  "installId": "your_install_id_here",
+  "apiKey": "sk-custom-your-key",
+  "upstreamApiKey": "REDACTED_UPSTREAM_APP_ID",
+  "baseURL": "https://agent.teleai.com.cn",
+  "appVersion": "2.7.0",
+  "userAgent": "opencode/1.2.27 ai-sdk/provider-utils/3.0.20 runtime/bun/1.3.10",
+  "listen": ":10000",
+  "models": ["chat-nano", "chat-lite", "chat-pro", "chat-flash"],
+  "timeout": "120s",
+  "logLevel": "info",
+  "logFormat": "text",
+  "retryCount": 0
+}

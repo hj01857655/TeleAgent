@@ -1,0 +1,12 @@
+# 统一换行符，避免 Windows/Linux 协作时产生整文件 diff
+* text=auto eol=lf
+
+# Windows 专用脚本保留 CRLF
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+
+# 二进制文件不做转换
+*.exe binary
+*.png binary
+*.jpg binary
+*.ico binary
