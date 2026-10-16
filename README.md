@@ -41,6 +41,10 @@ cp .env.example .env
 # 并设置独立的 ADMIN_PASSWORD（控制台登录密码）
 ```
 
+> **无需预先准备 token**：账号池为空时网关会以**降级模式**启动——控制台 `/ui` 照常可用，
+> 可在其中添加账号（或走「网页登录续期」）；在出现可用账号之前，数据面 `/v1/*` 返回 503。
+> 这样首次部署不会因为缺少凭证而崩溃重启。
+
 3. 启动：
 ```bash
 docker compose up -d --build
@@ -90,6 +94,8 @@ curl -N http://localhost:10000/v1/chat/completions \
 | 数据面 | 客户端 API 密钥（可多个） | `/v1/chat/completions`、`/v1/models` |
 
 > 未设置 `ADMIN_PASSWORD` 时，控制台暂时沿用 `API_KEY` 登录（启动日志会告警），便于平滑升级。
+> 若 `ADMIN_PASSWORD` 与 `API_KEY` **都未设置**，启动会生成一次性控制台密码并打印在日志中
+> （`consolePassword=...`，仅本次运行有效），不会把管理接口对网络敞开。
 > 这样即使某个客户端密钥泄漏，也无法进入后台管理账号、密钥和签到。
 
 ### 页面
@@ -170,6 +176,9 @@ curl -N http://localhost:10000/v1/chat/completions \
 ## 👥 多账号
 
 在控制台「账号」页添加，或让网关首次启动时从环境变量播种「默认账号」。
+
+> 首次部署可以先不填 `TELEAGENT_TOKEN`：网关在账号池为空时以降级模式启动，
+> 控制台保持可用，添加账号后数据面自动恢复（无需重启）。
 
 **调度规则**：
 
@@ -261,6 +270,8 @@ teleagent2api/
 ```
 
 - **必须设置** `ADMIN_PASSWORD` 与强随机客户端密钥，不要使用默认值；
+- `data/` 需对容器内非特权用户（uid 10001）可写：Linux 首次部署执行
+  `mkdir -p data && sudo chown 10001:10001 data`（Docker Desktop / Windows 通常无需处理）；
 - 不要将 10000 端口直接暴露公网，建议前置 Nginx/Caddy 做 HTTPS 反代；
 - `.env`、`data/` 已在 `.gitignore` 中，切勿提交到仓库；
 - 单副本部署时限流为进程内存计数；多副本部署时每副本独立计数。

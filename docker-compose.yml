@@ -12,6 +12,10 @@ services:
       - API_KEY=${API_KEY:-}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       - TELEAGENT_KEYS_FILE=${TELEAGENT_KEYS_FILE:-/app/data/teleagent-keys.json}
+      # Without this the account pool defaults to ./teleagent-accounts.json,
+      # i.e. /app/teleagent-accounts.json -- outside the volume, and on a
+      # read-only /app it cannot be written at all.
+      - TELEAGENT_ACCOUNTS_FILE=${TELEAGENT_ACCOUNTS_FILE:-/app/data/teleagent-accounts.json}
       - RATE_LIMIT_RPM=${RATE_LIMIT_RPM:-60}
       - TELEAGENT_ROUTE_TARGET=${TELEAGENT_ROUTE_TARGET:-ops-gateway}
       - TELEAGENT_APP_VERSION=${TELEAGENT_APP_VERSION:-2.7.0}
@@ -37,6 +41,9 @@ services:
     volumes:
       # Persists credentials renewed through the web panel (/ui → 网页登录续期)
       - ./data:/app/data
+      # The container runs as uid 10001. On a Linux host make the bind
+      # source writable first, else state cannot be persisted:
+      #   mkdir -p data && sudo chown 10001:10001 data
       # Optional: Mount config.json if you prefer file-based config over env vars
       # - ./config.json:/app/config.json:ro
     networks:
