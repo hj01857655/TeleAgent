@@ -56,12 +56,37 @@ jobs:
           tar czf "$tarball" "$binary"
           echo "tarball=$tarball" >> "$GITHUB_ENV"
 
+      # The release body is read from CHANGELOG.md rather than generated.
+      # `generate_release_notes` is deliberately NOT used: this job runs once
+      # per matrix platform, so it would append the same auto-generated
+      # "Full Changelog" blurb once per platform to a single release.
+      - name: Extract release notes from CHANGELOG.md
+        id: changelog
+        run: |
+          python3 - "$GITHUB_REF_NAME" <<'PY'
+          import pathlib, re, sys
+
+          tag = sys.argv[1]
+          path = pathlib.Path("CHANGELOG.md")
+          if not path.exists():
+              sys.exit("CHANGELOG.md not found")
+
+          text = path.read_text(encoding="utf-8")
+          pattern = r"(?ms)^##\s+" + re.escape(tag) + r"\b.*?(?=^##\s|\Z)"
+          match = re.search(pattern, text, re.MULTILINE | re.DOTALL)
+          if not match:
+              sys.exit(f"no CHANGELOG section for {tag}")
+
+          body = match.group(0).strip() + "\n"
+          pathlib.Path("RELEASE_NOTES.md").write_text(body, encoding="utf-8")
+          print(f"extracted {len(body)} chars for {tag}")
+          PY
+
       - name: Upload release asset
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ env.tarball }}
-          # 由 tag 推送触发时自动创建 Release；已存在则追加附件
-          generate_release_notes: true
+          body_path: RELEASE_NOTES.md
 
   build-docker:
     runs-on: ubuntu-latest
