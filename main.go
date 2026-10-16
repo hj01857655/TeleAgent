@@ -61,8 +61,13 @@ func main() {
 	}
 
 	if acctStore.Len() == 0 {
-		slog.Error("no account configured — set TELEAGENT_TOKEN/TELEAGENT_INSTALL_ID/TELEAGENT_DEVICE_ID, or add one in the web panel (/ui → 账号)")
-		os.Exit(1)
+		// Degraded start: an empty account pool is NOT fatal, otherwise the
+		// panel referenced in the message below could never be reached (the
+		// process would exit before the HTTP server ever listens, and
+		// `restart: unless-stopped` would turn that into a crash loop).
+		// The console stays reachable so the operator can add an account;
+		// the data plane answers 503 until one exists.
+		slog.Warn("no account configured — starting in degraded mode (console reachable, data plane disabled); add one in the web panel (/ui → 账号) or set TELEAGENT_TOKEN/TELEAGENT_INSTALL_ID/TELEAGENT_DEVICE_ID")
 	}
 
 	if cfg.APIKey == "" {
@@ -104,6 +109,17 @@ func main() {
 	keyStore := apikeys.NewStore(cfg.KeysFilePath)
 	keyStore.EnsureLegacyKey(cfg.APIKey)
 	adminPassword := cfg.AdminPassword
+
+	if adminPassword == "" && cfg.APIKey == "" {
+		// Neither console credential is configured. /v1/admin/* rejects every
+		// request without one, so the documented bootstrap path ("add an account
+		// in the panel") would be unreachable: the page loads but no login can
+		// ever succeed. Generate a per-run console password and print it once,
+		// instead of leaving the management API open to the network.
+		adminPassword = middleware.GenerateAdminPassword()
+		slog.Warn("ADMIN_PASSWORD/API_KEY 均未设置 — 已生成临时控制台密码（仅本次运行有效），请尽快设置 ADMIN_PASSWORD",
+			slog.String("consolePassword", adminPassword), slog.String("login", "/ui"))
+	}
 	if adminPassword == "" {
 		slog.Warn("ADMIN_PASSWORD 未设置 — 控制台暂用 API_KEY 登录，建议在 .env 中设置独立的 ADMIN_PASSWORD")
 	}

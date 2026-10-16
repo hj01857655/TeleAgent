@@ -104,6 +104,18 @@ func ChatCompletions(up *proxy.UpstreamProxy, pool *proxy.ClientPool, store *acc
 		var upstreamReq *http.Request
 		lastErr := "no account available"
 
+		// Empty pool is a configuration state, not a transient failure: fail
+		// closed with an actionable message instead of the generic
+		// "no available account", which suggests a cooldown and hides the cause.
+		if store.Len() == 0 {
+			slog.ErrorContext(r.Context(), "no account configured; data plane disabled")
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			fmt.Fprintf(w, `{"error":{"type":"service_unavailable","message":%q}}`,
+				"no account configured: add one in the control panel (/ui → 账号), or set TELEAGENT_TOKEN/TELEAGENT_INSTALL_ID/TELEAGENT_DEVICE_ID and restart")
+			return
+		}
+
 		for attempt := 0; attempt < maxAttempts; attempt++ {
 			picked, err := store.Pick()
 			if err != nil {
