@@ -277,6 +277,65 @@ func (s *Store) SeedFromEnv(token, deviceID, installID string) {
 	slog.Info("accounts: seeded default account from environment")
 }
 
+// UpsertFromLogin records credentials acquired through the web-login flow so
+// that the account pool reflects them immediately. Without this the pool only
+// ever learns about them from SeedFromEnv at process start, which means a
+// successful web login leaves the console reporting "no usable account" until
+// the process is restarted.
+//
+// Matching order: same installId, then same deviceId, then the first account in
+// the pool (renewing the primary account); an empty pool creates a new entry.
+// The second return value reports whether the change was persisted.
+func (s *Store) UpsertFromLogin(token, deviceID, installID string) (Account, bool) {
+	if strings.TrimSpace(token) == "" {
+		return Account{}, false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	find := func(match func(*Account) bool) *Account {
+		for _, a := range s.accounts {
+			if match(a) {
+				return a
+			}
+		}
+		return nil
+	}
+
+	var target *Account
+	if installID != "" {
+		target = find(func(a *Account) bool { return a.InstallID == installID })
+	}
+	if target == nil && deviceID != "" {
+		target = find(func(a *Account) bool { return a.DeviceID == deviceID })
+	}
+	if target == nil && len(s.accounts) > 0 {
+		target = s.accounts[0]
+	}
+	if target == nil {
+		target = &Account{ID: newID(), Name: "网页登录"}
+		s.accounts = append(s.accounts, target)
+	}
+
+	target.Token = token
+	if deviceID != "" {
+		target.DeviceID = deviceID
+	}
+	if installID != "" {
+		target.InstallID = installID
+	}
+	target.Enabled = true
+	target.Status = StatusReady
+	target.LastError = ""
+	target.cooldownUntil = time.Time{}
+
+	if err := s.saveLocked(); err != nil {
+		slog.Warn("accounts: persist web-login credentials failed", slog.String("error", err.Error()))
+		return *target, false
+	}
+	return *target, true
+}
+
 // Pick selects the next usable account (round-robin over healthy, enabled
 // accounts, honouring Priority as a tie-breaker via stable ordering).
 func (s *Store) Pick() (Account, error) {

@@ -31,6 +31,7 @@ import (
 	"sync"
 	"time"
 
+	"teleagent2api/internal/accounts"
 	"teleagent2api/internal/config"
 )
 
@@ -48,13 +49,16 @@ var jwtRe = regexp.MustCompile(`eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z
 type Service struct {
 	live    *config.Live
 	client  *http.Client
+	pool    *accounts.Store
 	mu      sync.Mutex
 	pending map[string]time.Time // state → expiry
 }
 
-// NewService wires the login flow to the live configuration.
-func NewService(live *config.Live, client *http.Client) *Service {
-	return &Service{live: live, client: client, pending: make(map[string]time.Time)}
+// NewService wires the login flow to the live configuration. pool receives
+// renewed credentials so the data plane can use them without a restart; it
+// may be nil when no account pool is configured.
+func NewService(live *config.Live, client *http.Client, pool *accounts.Store) *Service {
+	return &Service{live: live, client: client, pool: pool, pending: make(map[string]time.Time)}
 }
 
 // CallbackPath is the public redirect target suffix (combined with the
@@ -133,6 +137,16 @@ func (s *Service) HandleCallback(ctx context.Context, code, state string) (confi
 			slog.Error("authlogin: persist state", slog.String("error", err.Error()))
 		} else {
 			slog.Info("authlogin: credentials persisted", slog.String("file", cfg.StateFilePath))
+		}
+	}
+
+	// The account pool is what the data plane actually picks from, and it is
+	// otherwise only seeded at process start, so reflect the renewed
+	// credential here instead of waiting for a restart.
+	if s.pool != nil {
+		if acc, ok := s.pool.UpsertFromLogin(token, deviceID, installID); ok {
+			slog.Info("authlogin: account pool updated",
+				slog.String("account", acc.Name), slog.String("id", acc.ID))
 		}
 	}
 	return updated, nil

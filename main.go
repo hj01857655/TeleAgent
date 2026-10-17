@@ -150,7 +150,7 @@ func main() {
 	apiMux.HandleFunc("/v1/checkin", checkinHandler(checkinSvc))
 
 	// Web login (token renewal through the TeleAgent web account).
-	authSvc := authlogin.NewService(live, httpClient)
+	authSvc := authlogin.NewService(live, httpClient, acctStore)
 	mux.HandleFunc("/auth/login", authLoginHandler(authSvc, live))
 	mux.HandleFunc("/auth/callback", authCallbackHandler(authSvc))
 
