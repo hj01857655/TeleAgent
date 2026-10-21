@@ -21,6 +21,7 @@ package adapter
 
 import (
 	"encoding/json"
+	"sort"
 	"strings"
 )
 
@@ -53,17 +54,32 @@ type ModelLimits map[string]int
 // cannot parse would turn a client bug into a gateway bug, and the upstream's
 // own error is more useful than ours.
 func SanitizeRequest(body []byte, extra []string, limits ModelLimits) []byte {
+	out, _ := SanitizeRequestReport(body, extra, limits)
+	return out
+}
+
+// SanitizeRequestReport is SanitizeRequest plus the names of the fields it
+// removed, sorted.
+//
+// The names are what an operator actually needs: the upstream's error says only
+// "the parameters are wrong", so without this list there is no way to tell
+// which client field caused it. Reporting them on the debug log is the whole
+// reason this package does not just fail fast.
+func SanitizeRequestReport(body []byte, extra []string, limits ModelLimits) (out []byte, dropped []string) {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(body, &raw); err != nil {
-		return body
+		return body, nil
 	}
 
 	cleaned := make(map[string]json.RawMessage, len(raw))
 	for key, value := range raw {
 		if requestFields[key] || containsFold(extra, key) {
 			cleaned[key] = value
+		} else {
+			dropped = append(dropped, key)
 		}
 	}
+	sort.Strings(dropped)
 
 	if limit, ok := limits[modelName(cleaned["model"])]; ok && limit > 0 {
 		if value, present := cleaned["max_tokens"]; present {
@@ -77,11 +93,11 @@ func SanitizeRequest(body []byte, extra []string, limits ModelLimits) []byte {
 		}
 	}
 
-	out, err := json.Marshal(cleaned)
+	encoded, err := json.Marshal(cleaned)
 	if err != nil {
-		return body
+		return body, dropped
 	}
-	return out
+	return encoded, dropped
 }
 
 func modelName(raw json.RawMessage) string {

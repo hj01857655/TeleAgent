@@ -68,6 +68,33 @@ func TestSanitizeHonoursExtraFields(t *testing.T) {
 	}
 }
 
+func TestSanitizeReportsDroppedFields(t *testing.T) {
+	// The report is what makes an upstream "parameters are wrong" error
+	// actionable, so the names — and their order — matter.
+	body := []byte(`{"model":"m","messages":[],"top_k":5,"metadata":{},"thinking":{}, "anz":1}`)
+	_, dropped := SanitizeRequestReport(body, nil, nil)
+	want := []string{"anz", "metadata", "thinking", "top_k"}
+	if len(dropped) != len(want) {
+		t.Fatalf("dropped = %v, want %v", dropped, want)
+	}
+	for i := range want {
+		if dropped[i] != want[i] {
+			t.Errorf("dropped[%d] = %q, want %q (must be sorted)", i, dropped[i], want[i])
+		}
+	}
+}
+
+func TestSanitizeReportIsEmptyWhenNothingDropped(t *testing.T) {
+	body := []byte(`{"model":"m","messages":[]}`)
+	out, dropped := SanitizeRequestReport(body, nil, nil)
+	if len(dropped) != 0 {
+		t.Errorf("dropped = %v, want none", dropped)
+	}
+	if len(out) == 0 {
+		t.Error("output is empty")
+	}
+}
+
 func TestSanitizePassesThroughUnparseableBody(t *testing.T) {
 	body := []byte(`not json at all`)
 	out := SanitizeRequest(body, nil, nil)

@@ -13,6 +13,7 @@ TeleAgent2API 是一个轻量级的 API 网关，将 TeleAgent 服务转换为�
 - 📅 **自动签到**：积分福利社每日签到，按账号独立执行
 - 🌐 **出口代理**：全局或账号级 Resin 代理池（http / socks5，粘性会话）
 - 🔄 **网页登录续期**：浏览器登录一次，token 自动兑换保存，无需手动提取
+- 🧩 **协议兼容层**：请求白名单清洗、`max_tokens` 按模型封顶、`<think>` 推理块四模式拆分、空响应换账号重试
 - 🌊 支持流式 (SSE) 和非流式响应，兼容任何 OpenAI API 客户端
 - 📊 内置控制台：概览 / 账号 / 模型 / 密钥 / 签到 / 代理 / 日志 / 系统
 
@@ -197,6 +198,18 @@ curl -N http://localhost:10000/v1/chat/completions \
 
 非流式响应若为空（无 `choices`，或 message 里既无 `content`/`reasoning_content` 也无
 `tool_calls`），网关会换一个账号重试，而不是把空消息交给客户端。
+
+> **这三项只能通过 `.env` 或 `config.json` 配置**，控制台里没有对应的编辑框——控制台只
+> 读不写，不会覆盖它们。改完需要重启进程。
+
+**排查建议**：接入 Claude Code 等客户端时若仍见「API 调用参数有误」，把日志级别调到
+`debug` 再发一次请求。清洗时会打出被丢掉的字段名：
+
+```
+level=DEBUG msg="request sanitized" bytes_in=412 bytes_out=298 dropped="[metadata top_k thinking]"
+```
+
+确认某个字段上游其实认，就把它加进 `TELEAGENT_EXTRA_FIELDS`，下次就不会再被丢掉。
 
 ### 自动签到
 

@@ -11,6 +11,9 @@
 
 ### 新增
 
+- **清洗时报告被丢字段**：`SanitizeRequestReport` 返回被移除的字段名（已排序），`debug`
+  级别打出 `request sanitized ... dropped="[metadata top_k thinking]"`。上游的错误只说
+  「参数有误」不说是哪个，没有这份名单就没法判断该不该往 `TELEAGENT_EXTRA_FIELDS` 里加。
 - **请求白名单清洗**（`internal/adapter`）：转发前把请求体裁剪到上游认识的字段
   （`model` `messages` `stream` `temperature` `top_p` `max_tokens` `tools` `tool_choice`），
   顺序在鉴权与选账号之前。Claude Code 这类客户端携带的 `metadata` / `top_k` / `thinking` /

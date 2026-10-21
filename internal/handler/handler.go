@@ -81,10 +81,14 @@ func ChatCompletions(up *proxy.UpstreamProxy, pool *proxy.ClientPool, store *acc
 		// anything is forwarded. This is what removes the "API 调用参数有误"
 		// class of failure that clients like Claude Code provoke.
 		original := body
-		body = adapter.SanitizeRequest(body, cfg.ExtraFields, adapter.ModelLimits(cfg.ModelLimits))
-		if len(body) != len(original) {
+		body, dropped := adapter.SanitizeRequestReport(body, cfg.ExtraFields, adapter.ModelLimits(cfg.ModelLimits))
+		if len(dropped) > 0 {
+			// Naming the fields is the point: the upstream only ever says "the
+			// parameters are wrong", so this line is what turns an unactionable
+			// error into "add it to TELEAGENT_EXTRA_FIELDS if the upstream accepts it".
 			slog.DebugContext(r.Context(), "request sanitized",
-				slog.Int("bytes_in", len(original)), slog.Int("bytes_out", len(body)))
+				slog.Int("bytes_in", len(original)), slog.Int("bytes_out", len(body)),
+				slog.Any("dropped", dropped))
 		}
 
 		// Surface the requested model to the log/analytics layer and enforce
