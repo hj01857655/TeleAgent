@@ -19,12 +19,22 @@ services:
       - RATE_LIMIT_RPM=${RATE_LIMIT_RPM:-60}
       - TELEAGENT_ROUTE_TARGET=${TELEAGENT_ROUTE_TARGET:-ops-gateway}
       - TELEAGENT_APP_VERSION=${TELEAGENT_APP_VERSION:-2.7.0}
+      # Optional upstream application identifier. Empty means no Authorization
+      # header is sent at all -- authentication rides on TELEAGENT_TOKEN
+      # (X-Token) plus the X-SuperAgent-* device headers.
+      - TELEAGENT_UPSTREAM_KEY=${TELEAGENT_UPSTREAM_KEY:-}
       - TELEAGENT_MODELS=${TELEAGENT_MODELS:-chat-nano,chat-lite,chat-pro,chat-flash}
       - TELEAGENT_TIMEOUT=${TELEAGENT_TIMEOUT:-120s}
       - TELEAGENT_LOG_LEVEL=${TELEAGENT_LOG_LEVEL:-info}
       - TELEAGENT_LOG_FORMAT=${TELEAGENT_LOG_FORMAT:-text}
       - TELEAGENT_RETRY_COUNT=${TELEAGENT_RETRY_COUNT:-0}
       - TELEAGENT_SIGN=${TELEAGENT_SIGN:-0}
+      # Protocol compatibility layer: where the <think> block goes, which extra
+      # request fields the upstream accepts, and per-model max_tokens ceilings.
+      - TELEAGENT_REASONING_MODE=${TELEAGENT_REASONING_MODE:-content}
+      - TELEAGENT_EXTRA_FIELDS=${TELEAGENT_EXTRA_FIELDS:-}
+      # JSON object, not CSV -- a model->limit map has no unambiguous flat form.
+      - TELEAGENT_MODEL_LIMITS=${TELEAGENT_MODEL_LIMITS:-}
       # Auto check-in (TeleAgent Star Welfare Club / 积分福利社)
       - CHECKIN_ENABLED=${CHECKIN_ENABLED:-0}
       - CHECKIN_TIME=${CHECKIN_TIME:-08:00}
