@@ -21,14 +21,16 @@ TeleAgent2API 是一个轻量级的 API 网关，将 TeleAgent 服务转换为�
 
 ## 📌 本仓库说明
 
-本项目 fork 自 [gotsomethings/teleagent2api](https://github.com/gotsomethings/teleagent2api)，
-在协议兼容层做了扩展（见下方「协议兼容层」）。上游仓库保留为 `upstream` remote：
+本项目以 [gotsomethings/teleagent2api](https://github.com/gotsomethings/teleagent2api) 为底子二开，
+主要扩展是协议兼容层（见下方「协议兼容层」）。
 
-```bash
-git fetch upstream && git merge upstream/main   # 拉取原作者更新
-```
+原项目已经能跑通 TeleAgent → OpenAI 协议转换，本仓库在此基础上补齐的是**客户端兼容性**：
+Claude Code 这类客户端发来的字段和上游不认，思维链格式也和标准 OpenAI 响应不同。
 
-### 相对上游的改动
+> 本仓库**不跟踪上游更新**，也没有配置 `upstream` remote。两边已各自演进，需要参考原作者
+> 的实现时请直接访问上面那个仓库，不要指望能直接 merge。
+
+### 二开的内容
 
 | 改动 | 解决什么 |
 |---|---|

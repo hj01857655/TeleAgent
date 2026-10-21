@@ -19,8 +19,9 @@
   未设置 `TELEAGENT_UPSTREAM_KEY` 时**不再发送** `Authorization` 头，而不是发送空的
   `Bearer `。鉴权实际由 `X-Token`（账号 JWT）+ `X-SuperAgent-*` 设备头完成。
 
-> 历史提交仍含该字符串。如需彻底清除需重写历史并 force push，会改变所有 SHA 并与
-> `upstream` 失去共同祖先，故未执行。
+> 该字符串已通过 `git filter-repo` 从全部历史提交中清除，仓库内任何 revision 都不再
+> 包含它。代价是所有 commit SHA 已改变，与上游仓库再无共同祖先——因此本项目不再跟踪
+> 上游更新，`upstream` remote 也已移除（详见 README「本仓库说明」）。
 
 ### 新增
 
