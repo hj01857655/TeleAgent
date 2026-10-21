@@ -135,7 +135,7 @@ func main() {
 
 	apiMux := http.NewServeMux()
 	apiMux.HandleFunc("/v1/models", handler.Models(live.Get()))
-	apiMux.HandleFunc("/v1/chat/completions", handler.ChatCompletions(upProxy, clientPool, acctStore, auth, live.Get().RetryCount))
+	apiMux.HandleFunc("/v1/chat/completions", handler.ChatCompletions(upProxy, clientPool, acctStore, auth, live, live.Get().RetryCount))
 
 	// Auto check-in (TeleAgent Star Welfare Club / 积分福利社)
 	checkinSvc := checkin.NewService(live, acctStore, clientPool)
@@ -188,7 +188,7 @@ func main() {
 
 	// Legacy endpoints
 	mux.Handle("/models", auth.Client(http.HandlerFunc(handler.Models(cfg))))
-	mux.Handle("/chat/completions", auth.Client(http.HandlerFunc(handler.ChatCompletions(upProxy, clientPool, acctStore, auth, cfg.RetryCount))))
+	mux.Handle("/chat/completions", auth.Client(http.HandlerFunc(handler.ChatCompletions(upProxy, clientPool, acctStore, auth, live, cfg.RetryCount))))
 
 	// Stack: RequestID → MaxBodySize → AccessLog → mux
 	var h http.Handler = mux

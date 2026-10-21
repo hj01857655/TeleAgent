@@ -53,24 +53,35 @@ type Config struct {
 	LogLevel   string        `json:"logLevel,omitempty"`
 	LogFormat  string        `json:"logFormat,omitempty"`
 	RetryCount int           `json:"retryCount,omitempty"`
+	// ReasoningMode decides where the model's <think> block is delivered. See
+	// adapter.NormalizeMode for the accepted values.
+	ReasoningMode string `json:"reasoningMode,omitempty"`
+	// ExtraFields extends the request allowlist beyond the built-in set, for
+	// clients whose parameters the upstream does accept.
+	ExtraFields []string `json:"extraFields,omitempty"`
+	// ModelLimits caps max_tokens per model id; an absent entry means no cap.
+	ModelLimits map[string]int `json:"modelLimits,omitempty"`
 }
 
 // fileConfig mirrors Config but allows deserializing sensitive fields from file.
 type fileConfig struct {
-	Token          string   `json:"token"`
-	DeviceID       string   `json:"deviceId"`
-	InstallID      string   `json:"installId"`
-	APIKey         string   `json:"apiKey"`
-	UpstreamAPIKey string   `json:"upstreamApiKey"`
-	BaseURL        string   `json:"baseURL"`
-	AppVersion     string   `json:"appVersion"`
-	UserAgent      string   `json:"userAgent"`
-	Listen         string   `json:"listen"`
-	Models         []string `json:"models"`
-	Timeout        string   `json:"timeout"`
-	LogLevel       string   `json:"logLevel"`
-	LogFormat      string   `json:"logFormat"`
-	RetryCount     int      `json:"retryCount"`
+	Token          string         `json:"token"`
+	DeviceID       string         `json:"deviceId"`
+	InstallID      string         `json:"installId"`
+	APIKey         string         `json:"apiKey"`
+	UpstreamAPIKey string         `json:"upstreamApiKey"`
+	BaseURL        string         `json:"baseURL"`
+	AppVersion     string         `json:"appVersion"`
+	UserAgent      string         `json:"userAgent"`
+	Listen         string         `json:"listen"`
+	Models         []string       `json:"models"`
+	Timeout        string         `json:"timeout"`
+	LogLevel       string         `json:"logLevel"`
+	LogFormat      string         `json:"logFormat"`
+	RetryCount     int            `json:"retryCount"`
+	ReasoningMode  string         `json:"reasoningMode"`
+	ExtraFields    []string       `json:"extraFields"`
+	ModelLimits    map[string]int `json:"modelLimits"`
 }
 
 func Load() Config {
@@ -93,6 +104,8 @@ func Load() Config {
 		LogLevel:         "info",
 		LogFormat:        "text",
 		RetryCount:       0,
+		ReasoningMode:    "content",
+		ModelLimits:      defaultModelLimits(),
 	}
 
 	configPath := getEnv("TELEAGENT_CONFIG", "config.json")
@@ -148,6 +161,15 @@ func Load() Config {
 			}
 			if fc.RetryCount > 0 {
 				c.RetryCount = fc.RetryCount
+			}
+			if fc.ReasoningMode != "" {
+				c.ReasoningMode = fc.ReasoningMode
+			}
+			if len(fc.ExtraFields) > 0 {
+				c.ExtraFields = fc.ExtraFields
+			}
+			for model, limit := range fc.ModelLimits {
+				c.ModelLimits[model] = limit
 			}
 		}
 	}
@@ -250,6 +272,30 @@ func Load() Config {
 			c.RetryCount = n
 		}
 	}
+	if v, ok := os.LookupEnv("TELEAGENT_REASONING_MODE"); ok && strings.TrimSpace(v) != "" {
+		c.ReasoningMode = strings.TrimSpace(v)
+	}
+	if v, ok := os.LookupEnv("TELEAGENT_EXTRA_FIELDS"); ok {
+		for _, field := range strings.Split(v, ",") {
+			if field = strings.TrimSpace(field); field != "" {
+				c.ExtraFields = append(c.ExtraFields, field)
+			}
+		}
+	}
+	// JSON rather than a CSV: the value is a model→limit map, which has no
+	// unambiguous flat spelling. Malformed input is ignored rather than fatal,
+	// so a typo in one optional tuning knob cannot stop the gateway from booting.
+	if v := strings.TrimSpace(getEnv("TELEAGENT_MODEL_LIMITS", "")); v != "" {
+		var limits map[string]int
+		if err := json.Unmarshal([]byte(v), &limits); err != nil {
+			slog.Warn("TELEAGENT_MODEL_LIMITS is not valid JSON; using built-in limits",
+				slog.String("value", v), slog.String("error", err.Error()))
+		} else {
+			for model, limit := range limits {
+				c.ModelLimits[model] = limit
+			}
+		}
+	}
 
 	if len(c.Models) == 0 {
 		modelsStr := getEnv("TELEAGENT_MODELS", "chat-nano,chat-lite,chat-pro,chat-flash")
@@ -289,9 +335,9 @@ func (c Config) SafeSummary() string {
 	if c.APIKey != "" {
 		apiKeyHint = fmt.Sprintf("%s…", c.APIKey[:min(4, len(c.APIKey))])
 	}
-	return fmt.Sprintf("listen=%s upstream=%s token=%s apiKey=%s models=%v timeout=%s logLevel=%s retryCount=%d checkin=%s@%s proxy=%s",
+	return fmt.Sprintf("listen=%s upstream=%s token=%s apiKey=%s models=%v timeout=%s logLevel=%s retryCount=%d reasoningMode=%s checkin=%s@%s proxy=%s",
 		c.Listen, c.BaseURL, tokenHint, apiKeyHint, c.Models, c.Timeout, c.LogLevel, c.RetryCount,
-		c.CheckInType, c.CheckInTime, c.RedactedProxyURL())
+		c.ReasoningMode, c.CheckInType, c.CheckInTime, c.RedactedProxyURL())
 }
 
 // PortalBaseURL returns the TeleAgent user-portal (Star Welfare Club) API base,
@@ -316,6 +362,19 @@ func (c Config) SlogLevel() slog.Level {
 		return slog.LevelError
 	default:
 		return slog.LevelInfo
+	}
+}
+
+// defaultModelLimits is the max_tokens ceiling per model, taken from what each
+// model reports as its own output cap. A model that is absent here is left
+// uncapped: guessing a limit for an unknown model would silently truncate
+// answers, which is worse than letting the upstream refuse the request.
+func defaultModelLimits() map[string]int {
+	return map[string]int{
+		"chat-nano":  16384,
+		"chat-lite":  32768,
+		"chat-pro":   65536,
+		"chat-flash": 65536,
 	}
 }
 

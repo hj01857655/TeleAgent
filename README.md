@@ -18,9 +18,23 @@ TeleAgent2API 是一个轻量级的 API 网关，将 TeleAgent 服务转换为�
 
 ---
 
-## ⚠️ 已知问题
+## 📌 本仓库说明
 
-在接入 Claude Code 使用时，有时会出现 "API 调用参数有误，请检查文档" 报错，重试后正常
+本项目 fork 自 [gotsomethings/teleagent2api](https://github.com/gotsomethings/teleagent2api)，
+在协议兼容层做了扩展（见下方「协议兼容层」）。上游仓库保留为 `upstream` remote：
+
+```bash
+git fetch upstream && git merge upstream/main   # 拉取原作者更新
+```
+
+### 相对上游的改动
+
+| 改动 | 解决什么 |
+|---|---|
+| 请求白名单清洗 | 「API 调用参数有误，请检查文档」——上游拒收 `metadata` / `top_k` / `thinking` / `system` 等字段 |
+| `max_tokens` 按模型封顶 | 客户端请求超出模型输出上限时上游直接报错 |
+| `<think>` 推理块拆分（四模式） | 思维链以 `<think>` 标签混在正文里，客户端当普通文本渲染 |
+| 空响应换账号重试 | 上游偶发 200 但内容为空，客户端拿到空消息无从诊断 |
 
 ---
 
@@ -30,8 +44,8 @@ TeleAgent2API 是一个轻量级的 API 网关，将 TeleAgent 服务转换为�
 
 1. 克隆代码或下载：
 ```bash
-git clone <repository_url>
-cd teleagent2api
+git clone https://github.com/hj01857655/TeleAgent.git
+cd TeleAgent
 ```
 
 2. 复制环境变量模板并填入参数：
@@ -151,6 +165,39 @@ curl -N http://localhost:10000/v1/chat/completions \
 | `TELEAGENT_LOG_LEVEL` / `logLevel` | `info` | 日志级别 (debug/info/warn/error) |
 | `TELEAGENT_LOG_FORMAT` / `logFormat` | `text` | 日志格式 (text/json) |
 
+### 协议兼容层
+
+上游是 TeleAgent 桌面端的自有后端，只认一小撮固定字段。Claude Code 一类客户端会带上
+`metadata`、`top_k`、`thinking`、`system` 等字段，上游碰到未知字段就整包拒绝并返回
+「API 调用参数有误，请检查文档」。网关默认按**白名单**清洗请求，把这类报错从源头消掉。
+
+| 环境变量 / JSON 键 | 默认值 | 说明 |
+|---------|--------|------|
+| `TELEAGENT_REASONING_MODE` / `reasoningMode` | `content` | `<think>` 推理块去向，见下表 |
+| `TELEAGENT_EXTRA_FIELDS` / `extraFields` | 空 | 白名单外额外放行的字段（逗号分隔 / JSON 数组） |
+| `TELEAGENT_MODEL_LIMITS` / `modelLimits` | 见下 | 各模型 `max_tokens` 上限（JSON 对象） |
+
+放行的字段：`model` `messages` `stream` `temperature` `top_p` `max_tokens` `tools` `tool_choice`。
+
+`<think>` 推理块的四种去向（GLM 系上游把思维链放在 `content` 开头）：
+
+| 值 | 行为 |
+|---|---|
+| `content` | 原样透传，保留标签（默认，唯一不会让回复变差的模式） |
+| `reasoning_content` | 拆到 `delta.reasoning_content`，`content` 保持干净（支持推理通道的客户端推荐） |
+| `visible` | 去掉标签、保留文字，留在 `content` 里 |
+| `strip` | 整个丢弃推理块 |
+
+流式路径会处理标签被切到两个 chunk 里的情况：可能是标签开头的尾巴先缓冲，确认不是标签
+再放行，避免把 `<thi` 当正文发出去；流结束时仍未闭合的半截标签按正文放出，不静默丢弃。
+
+`max_tokens` 默认上限：`chat-nano` 16384、`chat-lite` 32768、`chat-pro` 65536、`chat-flash` 65536。
+超出会被截到上限，未列出的模型不设上限。覆盖示例：
+`TELEAGENT_MODEL_LIMITS='{"chat-pro":32768}'`。
+
+非流式响应若为空（无 `choices`，或 message 里既无 `content`/`reasoning_content` 也无
+`tool_calls`），网关会换一个账号重试，而不是把空消息交给客户端。
+
 ### 自动签到
 
 | 环境变量 | 默认值 | 说明 |
@@ -264,7 +311,7 @@ powershell -ExecutionPolicy Bypass -File tools/get-teleagent-token.ps1
 
 ```bash
 # 目录结构
-teleagent2api/
+TeleAgent/
 ├─ .env                 # 凭证与配置（chmod 600）
 └─ data/                # 持久化：账号池、密钥库、网页登录状态
 ```

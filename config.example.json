@@ -12,5 +12,13 @@
   "timeout": "120s",
   "logLevel": "info",
   "logFormat": "text",
-  "retryCount": 0
+  "retryCount": 0,
+  "reasoningMode": "content",
+  "extraFields": [],
+  "modelLimits": {
+    "chat-nano": 16384,
+    "chat-lite": 32768,
+    "chat-pro": 65536,
+    "chat-flash": 65536
+  }
 }
