@@ -438,7 +438,9 @@ func (s *Service) portalGet(ctx context.Context, acc accounts.Account, path, que
 // applyAuthHeaders mirrors the desktop client's portal request headers:
 // X-Token (JWT) plus the SuperAgent device attestation headers.
 func (s *Service) applyAuthHeaders(req *http.Request, acc accounts.Account) {
-	req.Header.Set("Authorization", "Bearer "+s.cfg().UpstreamAPIKey)
+	if key := s.cfg().UpstreamAPIKey; key != "" {
+		req.Header.Set("Authorization", "Bearer "+key)
+	}
 	if s.cfg().RouteTarget != "" {
 		req.Header.Set("X-Route-Target", s.cfg().RouteTarget)
 	}

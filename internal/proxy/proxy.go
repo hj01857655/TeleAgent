@@ -86,7 +86,14 @@ func (p *UpstreamProxy) BuildRequest(r *http.Request, body []byte, acc accounts.
 		return nil, fmt.Errorf("create upstream request: %w", err)
 	}
 
-	upstreamReq.Header.Set("Authorization", "Bearer "+cfg.UpstreamAPIKey)
+	// An unconfigured key omits the header rather than sending "Bearer " with an
+	// empty value: the latter is a malformed credential, and a header that says
+	// nothing is easier to distinguish from a real one in a packet capture.
+	// Authentication itself rides on X-Token (the account JWT) plus the
+	// X-SuperAgent-* device headers below, not on this value.
+	if cfg.UpstreamAPIKey != "" {
+		upstreamReq.Header.Set("Authorization", "Bearer "+cfg.UpstreamAPIKey)
+	}
 	if cfg.RouteTarget != "" {
 		// Required by the current TeleAgent ops-gateway routing layer.
 		upstreamReq.Header.Set("X-Route-Target", cfg.RouteTarget)

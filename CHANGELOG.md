@@ -7,7 +7,20 @@
 每次发版前，先在本文件顶部新增一个 `## <tag>` 段落，
 内容会自动作为 GitHub Release 的发布说明（见 .github/workflows/release.yml）。
 
-## v1.1.0 — 2026-10-21
+## v1.1.1 — 2026-10-21
+
+### 安全
+
+- **移除源码中的内置上游标识**：`REDACTED_UPSTREAM_APP_ID` 此前硬编码在
+  `internal/config/config.go` 的默认值里，并出现在 `.env.example`、`config.example.json`
+  中，被 GitGuardian 判定为泄露凭证。该值是上游项目公开的应用标识（同一份代码在
+  `gotsomethings/teleagent2api` 与 `T786279007/teleagent2api-deploy` 公开可见），
+  非账号凭证；但既然会持续触发告警、且不应由下游仓库继续分发，改为必须显式配置。
+  未设置 `TELEAGENT_UPSTREAM_KEY` 时**不再发送** `Authorization` 头，而不是发送空的
+  `Bearer `。鉴权实际由 `X-Token`（账号 JWT）+ `X-SuperAgent-*` 设备头完成。
+
+> 历史提交仍含该字符串。如需彻底清除需重写历史并 force push，会改变所有 SHA 并与
+> `upstream` 失去共同祖先，故未执行。
 
 ### 新增
 

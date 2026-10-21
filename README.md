@@ -155,7 +155,7 @@ curl -N http://localhost:10000/v1/chat/completions \
 |---------|--------|------|
 | `TELEAGENT2API_LISTEN` / `listen` | `:10000` | 监听地址 |
 | `TELEAGENT_BASE_URL` / `baseURL` | `https://agent.teleai.com.cn` | 上游接口地址 |
-| `TELEAGENT_UPSTREAM_KEY` / `upstreamApiKey` | (内置) | 上游 API Key，一般无需修改 |
+| `TELEAGENT_UPSTREAM_KEY` / `upstreamApiKey` | 空 | 可选的上游应用标识；留空则不发送 `Authorization` 头，鉴权实际由 `TELEAGENT_TOKEN` + 设备头完成 |
 | `TELEAGENT_ROUTE_TARGET` | `ops-gateway` | 上游路由头 `X-Route-Target`（新版必需） |
 | `TELEAGENT_APP_VERSION` | `2.7.0` | 客户端版本号 |
 | `TELEAGENT_USER_AGENT` / `userAgent` | (内置) | User-Agent |

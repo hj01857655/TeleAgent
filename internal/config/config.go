@@ -87,7 +87,13 @@ type fileConfig struct {
 func Load() Config {
 	// Phase 1: defaults + config file
 	c := Config{
-		UpstreamAPIKey:   "REDACTED_UPSTREAM_APP_ID",
+		// No built-in default: this is the upstream's application identifier, and
+		// shipping one in source means every deployment shares (and publishes) the
+		// same credential-shaped string. Supply it via TELEAGENT_UPSTREAM_KEY or
+		// config.json. An empty value omits the Authorization header entirely,
+		// which the upstream treats the same as its own built-in value — see
+		// proxy.BuildRequest.
+		UpstreamAPIKey:   "",
 		RouteTarget:      "ops-gateway",
 		SignEnabled:      false,
 		CheckInType:      "daily_login",
