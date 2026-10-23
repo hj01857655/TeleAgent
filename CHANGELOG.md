@@ -7,6 +7,32 @@
 每次发版前，先在本文件顶部新增一个 `## <tag>` 段落，
 内容会自动作为 GitHub Release 的发布说明（见 .github/workflows/release.yml）。
 
+## v1.1.2 — 2026-10-23
+
+### 修复
+
+- **HMAC 签名默认值翻正（`TELEAGENT_SIGN` 默认 `0` → `1`）**：v1.1.1 之前按
+  「现行服务端已不校验 superagent-auth-v1 签名」的假设把默认关掉了。2026-10-23 对
+  现行上游做了单变量 A/B 实测（同 token、同设备、仅 `TELEAGENT_SIGN` 不同）：
+  关签时上游直接拒绝，`isAuthFailure` 命中并把账号标记 auth-failed，网关对客户端
+  表现为 503「no available account」；开签返回 200 且有有效回复。签名是**必需的**，
+  此前任何新部署开箱即用都是坏的。本次把 Go 默认值、`docker-compose.yml`
+  （`${TELEAGENT_SIGN:-1}`，compose 的显式传值会覆盖 Go 默认，漏了它 Docker 路径
+  依然是坏的）、`.env.example`、README 四处一起翻正；对接确认不校验签名的旧服务端
+  时才显式设 `0`。
+- **`tools/get-teleagent-token.ps1` 解密路径重写**：新版客户端的 `token.json` 是
+  Electron safeStorage（Chromium os_crypt `v10` 信封：`v10` + 12B nonce +
+  AES-256-GCM 密文 + 16B tag），32 字节主密钥在数据根目录 `Local State` 的
+  `os_crypt.encrypted_key`（base64 解开后带 `DPAPI` 前缀，DPAPI 只保护主密钥这一层）。
+  原脚本把整块 `encryptedToken` 直接丢给 DPAPI，实测报「数据无效」。旧格式
+  （明文 `token` 字段、裸 DPAPI blob）保留兼容尝试顺序。脚本因此需要 PowerShell 7+
+  （AES-GCM 依赖 .NET 5+ 的 `AesGcm` 类型），入口加了版本检查与提示。
+- **过期时间解析在 pwsh 7 下静默失败**：`New-TimeSpan -End` 在 5.1 接受
+  `DateTimeOffset` 的隐式转换、在 7 下抛异常，被空 `catch {}` 吞掉后表现为
+  「无法解析过期时间」。改用 `.LocalDateTime`，并把空 catch 改成打印具体错误。
+- README 相应两处「DPAPI 加密」的错误描述改为 os_crypt v10 准确说明；提取命令
+  从 `powershell` 改为 `pwsh`。
+
 ## v1.1.1 — 2026-10-21
 
 ### 安全
