@@ -6,6 +6,7 @@ teleagent-keys.json
 teleagent-accounts.json
 data/
 *.exe
+*.exe~
 teleagent2api
 *.log
 
