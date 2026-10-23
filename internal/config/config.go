@@ -95,7 +95,11 @@ func Load() Config {
 		// proxy.BuildRequest.
 		UpstreamAPIKey:   "",
 		RouteTarget:      "ops-gateway",
-		SignEnabled:      false,
+		// Signing is required by the current server (verified 2026-10-23 against
+		// the live gateway: without it the upstream answers 401/login-page and
+		// the account gets marked auth-failed). TELEAGENT_SIGN=0 only to opt out
+		// against a legacy server that never checks the signature.
+		SignEnabled:      true,
 		CheckInType:      "daily_login",
 		CheckInTime:      "08:00",
 		RateLimitRPM:     60,
@@ -200,8 +204,8 @@ func Load() Config {
 		c.RouteTarget = v
 	}
 	if v, ok := os.LookupEnv("TELEAGENT_SIGN"); ok {
-		// Legacy HMAC signing (superagent-auth-v1). The current TeleAgent
-		// server no longer requires it; enabled only for backward compat.
+		// HMAC signing (superagent-auth-v1) is required by the current server;
+		// set TELEAGENT_SIGN=0 only against a legacy server that ignores it.
 		c.SignEnabled = v == "1" || strings.EqualFold(v, "true")
 	}
 	if v, ok := os.LookupEnv("CHECKIN_ENABLED"); ok {

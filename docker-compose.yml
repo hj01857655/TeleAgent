@@ -28,7 +28,7 @@ services:
       - TELEAGENT_LOG_LEVEL=${TELEAGENT_LOG_LEVEL:-info}
       - TELEAGENT_LOG_FORMAT=${TELEAGENT_LOG_FORMAT:-text}
       - TELEAGENT_RETRY_COUNT=${TELEAGENT_RETRY_COUNT:-0}
-      - TELEAGENT_SIGN=${TELEAGENT_SIGN:-0}
+      - TELEAGENT_SIGN=${TELEAGENT_SIGN:-1}
       # Protocol compatibility layer: where the <think> block goes, which extra
       # request fields the upstream accepts, and per-model max_tokens ceilings.
       - TELEAGENT_REASONING_MODE=${TELEAGENT_REASONING_MODE:-content}

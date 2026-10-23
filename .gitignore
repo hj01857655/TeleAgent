@@ -1,6 +1,7 @@
 .env
 config.json
 token-state.json
+teleagent-token-state.json
 teleagent-keys.json
 teleagent-accounts.json
 data/
@@ -20,3 +21,6 @@ Thumbs.db
 
 # Build
 go.sum
+
+# 本地备份/临时产物
+*.bak

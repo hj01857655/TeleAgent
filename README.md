@@ -164,7 +164,7 @@ curl -N http://localhost:10000/v1/chat/completions \
 | `TELEAGENT_MODELS` | `chat-nano,chat-lite,chat-pro,chat-flash` | 模型列表 |
 | `TELEAGENT_TIMEOUT` / `timeout` | `120s` | 请求超时 |
 | `TELEAGENT_RETRY_COUNT` / `retryCount` | `0` | 上游 5xx 重试次数（多账号时同时是故障切换次数上限） |
-| `TELEAGENT_SIGN` | `0` | 旧版 HMAC 签名开关（仅旧服务端需要） |
+| `TELEAGENT_SIGN` | `1` | HMAC 签名开关（superagent-auth-v1）。**现行上游必需**，仅对接不校验签名的旧服务端时设 `0` |
 | `TELEAGENT_LOG_LEVEL` / `logLevel` | `info` | 日志级别 (debug/info/warn/error) |
 | `TELEAGENT_LOG_FORMAT` / `logFormat` | `text` | 日志格式 (text/json) |
 
@@ -295,14 +295,19 @@ level=DEBUG msg="request sanitized" bytes_in=412 bytes_out=298 dropped="[metadat
 
 ### ② 一键提取脚本（从桌面客户端）
 
-在已登录 TeleAgent 桌面客户端的电脑上运行：
+在已登录 TeleAgent 桌面客户端的电脑上运行（需 PowerShell 7+，用 `pwsh` 而不是 `powershell`）：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools/get-teleagent-token.ps1
+pwsh -ExecutionPolicy Bypass -File tools/get-teleagent-token.ps1
 ```
 
-脚本会自动定位凭证目录、解密 token（新版用 Windows DPAPI 加密存储）、解码到期时间，
-并直接打印可粘贴到 `.env` 的三行配置。
+脚本会自动定位凭证目录、解密 token、解码到期时间，并直接打印可粘贴到 `.env` 的三行配置。
+
+> 新版的存储格式是 **Electron safeStorage（Chromium os_crypt `v10` 信封，AES-256-GCM）**，
+> 不是裸 DPAPI：`token.json` 里的 base64 解开后是 `v10` + 12B nonce + 密文 + 16B tag；
+> 32 字节主密钥在数据根目录的 `Local State` → `os_crypt.encrypted_key`，
+> 那一层才是 DPAPI（base64 解开后带 `DPAPI` 前缀），且仅限当前 Windows 用户。
+> 常见误判是「直接把整块 `encryptedToken` 丢给 DPAPI」，会报「数据无效」。
 
 ### ③ 手动查找凭证文件
 
@@ -312,8 +317,9 @@ powershell -ExecutionPolicy Bypass -File tools/get-teleagent-token.ps1
 .local\share\TeleAgent\
 ├─ app-auth\
 │   └─ device-meta.json              ← deviceId / installId（明文，直接可读）
+├─ Local State                       ← os_crypt.encrypted_key：AES 主密钥（DPAPI 保护）
 └─ users\<用户ID>\app-auth\
-    └─ token.json                    ← token（DPAPI 加密，需用脚本②解密）
+    └─ token.json                    ← token（os_crypt v10 / AES-256-GCM，需用脚本②解密）
 ```
 
 > 目录在**首次登录客户端后**才会生成；旧版客户端路径 `%APPDATA%\TeleAgent\app-auth\state.json`（明文）仍兼容读取。
